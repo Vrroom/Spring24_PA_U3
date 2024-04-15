@@ -171,19 +171,6 @@ export function mul_matrix_matrix(m1, m2) {
     return result;
 }
 
-/*
-// matrix should be an array of arrays in row-major format
-// [
-// [m00, m01],
-// [m10, m11]
-// ]
-// vector should be in format
-// [ v0, v1 ]
-export function mul_matrix_2x2_vector_2x1(matrix, vector) {
-    let res = mul_matrix_matrix( matrix, [[vector[0]], [vector[1]]] );
-    return [res[0][0], res[1][0]];
-}
-
 // matrix should be an array of arrays in row-major format
 // [
 // [m00, m01, m02],
@@ -195,6 +182,20 @@ export function mul_matrix_2x2_vector_2x1(matrix, vector) {
 export function mul_matrix_3x3_vector_3x1(matrix, vector) {
     let res = mul_matrix_matrix(matrix, [[vector[0]], [vector[1]], [vector[2]]]);
     return [res[0][0], res[1][0], res[2][0]];
+}
+
+
+/*
+// matrix should be an array of arrays in row-major format
+// [
+// [m00, m01],
+// [m10, m11]
+// ]
+// vector should be in format
+// [ v0, v1 ]
+export function mul_matrix_2x2_vector_2x1(matrix, vector) {
+    let res = mul_matrix_matrix( matrix, [[vector[0]], [vector[1]]] );
+    return [res[0][0], res[1][0]];
 }
 
 // matrix should be an array of arrays in row-major format
