@@ -20,11 +20,147 @@
 </head>
 <body>
 <script type="module">
-    import {get_default_lil_gui, ThreeEngine, refresh_displays} from "../js/utils/utils_three.js";
 
     // todo: create a visualization that demonstrates your knowledge of quaternions.  This is intentionally
     // todo: open-ended.  Be as creative as you want, or feel free to recreate any of the visualizations
     // todo: found in Section 3.3.
+
+    // README: In this part, I'll be implementing SLERP for interpolating between quaternion rotations. 
+    // I need this for augmenting my dataset of sign language poses, so might as well implement it here.
+    // Hopefully this counts!!
+
+    // To use the visualization, set the values of unnormalized quaternions and use the t slider to interpolate
+    // between them. Under the hood, we'll be always normalizing them so don't worry about unnormalized values.
+
+    import {ThreeEngine} from "../js/utils/utils_three.js";
+    import {get_default_lil_gui} from "../js/utils/utils_three.js";
+    import {refresh_displays} from "../js/utils/utils_three.js";
+    import {unroll_matrix_to_list} from "../js/utils/utils_math.js";
+    // stolen from your visualization
+    import {mul_wxyz_quaternions} from "../js/utils/utils_quaternion.js";
+    import {frobenius_norm_matrix} from "../js/utils/utils_math.js";
+
+    let engine = ThreeEngine.new_default_3d();
+    let gui = get_default_lil_gui();
+
+    function quaternion_to_versor (q) {
+      let omega = Math.acos(q[0]);
+      let v = q.slice(1).map(x => {
+        if (Math.abs(Math.sin(omega)) < 0.0001) {
+          return 0;
+        } else {
+          return (x / Math.sin(omega)) ;
+        }
+      }); 
+      return [omega, v];
+    }
+
+    function quaternion_pow (q, t) {
+      let [omega, v] = quaternion_to_versor(q);
+      let w_ = Math.cos(t * omega);
+      let [x, y, z] = v;
+      let x_ = Math.sin(t * omega) * x;
+      let y_ = Math.sin(t * omega) * y;
+      let z_ = Math.sin(t * omega) * z;
+      return [w_, x_, y_, z_];
+    }
+
+    function quaternion_conj (q) {
+      return [q[0], -q[1], -q[2], -q[3]];
+    }
+
+    function quaternion_norm (q) { 
+      return Math.sqrt(q.map((x) => x * x).reduce((a, b) => a + b));
+    }
+
+    function quaternion_norm_sq (q) { 
+      return (q.map((x) => x * x).reduce((a, b) => a + b));
+    }
+
+    function normalized (q) {
+      let norm = Math.sqrt(q.map((x) => x * x).reduce((a, b) => a + b)); 
+      return q.map((x) => x / norm);
+    }
+
+    function quaternion_inv (q) { 
+      let conj = quaternion_conj(q); 
+      let norm_sq = quaternion_norm_sq(q); 
+      return conj.map((x) => x / norm_sq); 
+    }
+
+    function interpolate (q_0, q_1, t) { 
+      // this implements the formula from wikipedia
+      // https://en.wikipedia.org/wiki/Slerp
+      // (q_1 q_0^{-1})^t q_0
+      return mul_wxyz_quaternions(
+        quaternion_pow(
+          mul_wxyz_quaternions(
+            q_1,
+            quaternion_inv(q_0)
+          ),
+          t
+        ),
+        q_0 
+      );
+    }
+
+    let settings = {
+        display_wireframe: true,
+        w1: 1,
+        x1: 0,
+        y1: 0,
+        z1: 0,
+        w2: 1,
+        x2: 0,
+        y2: 0,
+        z2: 0,
+        t: 0
+    }
+
+    gui.add(settings, 't', 0.0, 1.0).name('t');
+
+    let folder1 = gui.addFolder('Quarternion 1 (t = 0)');
+    folder1.add(settings, 'w1', -3.0, 3.0).name('w');
+    folder1.add(settings, 'x1', -3.0, 3.0).name('x');
+    folder1.add(settings, 'y1', -3.0, 3.0).name('y');
+    folder1.add(settings, 'z1', -3.0, 3.0).name('z');
+
+    let folder2 = gui.addFolder('Quarternion 2 (t = 1)');
+    folder2.add(settings, 'w2', -3.0, 3.0).name('w');
+    folder2.add(settings, 'x2', -3.0, 3.0).name('x');
+    folder2.add(settings, 'y2', -3.0, 3.0).name('y');
+    folder2.add(settings, 'z2', -3.0, 3.0).name('z');
+
+    engine.add_suzanne_monkey_as_mesh_object(0x00eeff);
+    // engine.toggle_mesh_object_wireframe_visibility(0);
+    engine.toggle_mesh_object_visibility(0);
+
+    let points = engine.get_local_vertex_positions_of_mesh_object_wireframe(0);
+
+    engine.animation_loop(function() {
+
+        engine.set_mesh_object_wireframe_visibility(0, true);
+
+        let q_0 = normalized([settings.w1, settings.x1, settings.y1, settings.z1]);
+        let q_1 = normalized([settings.w2, settings.x2, settings.y2, settings.z2]);
+
+        refresh_displays(gui);
+
+        let mapped_points = [];
+        points.forEach(point => {
+            let p = unroll_matrix_to_list(point);
+            let x = p[0];
+            let y = p[1];
+            let z = p[2];
+            let q_point = [0, x, y, z];
+            let qm = normalized(interpolate(q_0, q_1, settings.t)); 
+            let mapped_quat = mul_wxyz_quaternions(mul_wxyz_quaternions(qm, q_point), quaternion_conj(qm));
+            let mapped_point = [mapped_quat[1], mapped_quat[2], mapped_quat[3]];
+            mapped_points.push(mapped_point);
+        });
+        engine.update_vertex_positions_of_mesh_object_wireframe(0, mapped_points);
+
+    });
 
 </script>
 </body>
